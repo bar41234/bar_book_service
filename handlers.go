@@ -90,7 +90,6 @@ func PostBook(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, book)
-
 }
 
 func DeleteBook(c *gin.Context) {
