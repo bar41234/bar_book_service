@@ -13,11 +13,6 @@ type ShortBook struct {
 	Id    string `json:"id"`
 }
 
-type PriceRange struct {
-	low  float64
-	high float64
-}
-
 type BookQuery struct {
 	Title      string `json:"title"`
 	PriceRange string `json:"price_range"`

@@ -72,7 +72,6 @@ func PostBook(c *gin.Context) {
 		return
 	}
 	jsonData, err := c.GetRawData()
-	// Note: if the user post with typo title (e.g "titlee"), the post will succeed with title = ""
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ERROR_MSG_INVALID_POST_REQUEST)
 		return
