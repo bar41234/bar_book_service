@@ -1,11 +1,12 @@
 package main
 
 import (
+	"github.com/bar41234/bar_book_service/service"
 	"github.com/gin-gonic/gin"
 )
 
-func main()  {
+func main() {
 	gin := gin.Default()
-	Routes(gin)
+	service.Routes(gin)
 	gin.Run()
 }

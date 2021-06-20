@@ -6,7 +6,8 @@ import (
 )
 
 const (
-	SERVER_URL = "localhost:6379"
+	ServerUrl     = "localhost:6379"
+	ActionsNumber = 6
 )
 
 type RedisCache struct {
@@ -17,7 +18,7 @@ type RedisCache struct {
 func (e *RedisCache) Init() {
 	if !e.isInit {
 		client := redis.NewClient(&redis.Options{
-			Addr:     SERVER_URL,
+			Addr:     ServerUrl,
 			Password: "",
 			DB:       0,
 		})
@@ -28,7 +29,7 @@ func (e *RedisCache) Init() {
 
 func (e *RedisCache) CacheGet(username string) ([]string, error) {
 	e.Init()
-	ret , err := e.client.LRange(username, 0, 5).Result()
+	ret, err := e.client.LRange(username, 0, 5).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +40,7 @@ func (e *RedisCache) CacheAdd(username string, ctx *gin.Context) {
 	e.Init()
 	if username != "" {
 		length := e.client.LLen(username)
-		if length.Val() >= 6 {
+		if length.Val() >= ActionsNumber {
 			e.client.RPop(username)
 			e.client.RPop(username)
 		}

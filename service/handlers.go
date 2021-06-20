@@ -1,4 +1,4 @@
-package main
+package service
 
 import (
 	"encoding/json"
@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	ERROR_MSG_ID_NOT_FOUND         = "Error: Id was not found!"
-	ERROR_MSG_INVALID_PUT_REQUEST  = "Error: Invalid PUT request"
-	ERROR_MSG_INVALID_POST_REQUEST = "Error: Invalid POST request"
+	ErrorMsgIdNotFound         = "Error: Id was not found!"
+	ErrorMsgInvalidPutRequest  = "Error: Invalid PUT request"
+	ErrorMsgInvalidPostRequest = "Error: Invalid POST request"
 )
 
 func Ping(c *gin.Context) {
@@ -28,7 +28,7 @@ func GetBook(c *gin.Context) {
 
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusNotFound, ERROR_MSG_ID_NOT_FOUND)
+		c.JSON(http.StatusNotFound, ErrorMsgIdNotFound)
 		return
 	}
 	book, err := Get(id)
@@ -45,13 +45,13 @@ func PutBook(c *gin.Context) {
 
 	jsonData, err := c.GetRawData()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, ERROR_MSG_INVALID_PUT_REQUEST)
+		c.JSON(http.StatusBadRequest, ErrorMsgInvalidPutRequest)
 		return
 	}
 	book := models.Book{}
 	unmarshallErr := json.Unmarshal(jsonData, &book)
 	if unmarshallErr != nil {
-		c.JSON(http.StatusBadRequest, ERROR_MSG_INVALID_PUT_REQUEST)
+		c.JSON(http.StatusBadRequest, ErrorMsgInvalidPutRequest)
 		return
 	}
 	id, putErr := Put(book)
@@ -68,18 +68,18 @@ func PostBook(c *gin.Context) {
 
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusNotFound, ERROR_MSG_ID_NOT_FOUND)
+		c.JSON(http.StatusNotFound, ErrorMsgIdNotFound)
 		return
 	}
 	jsonData, err := c.GetRawData()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, ERROR_MSG_INVALID_POST_REQUEST)
+		c.JSON(http.StatusBadRequest, ErrorMsgInvalidPostRequest)
 		return
 	}
 	shortBook := models.ShortBook{}
 	unmarshalErr := json.Unmarshal(jsonData, &shortBook)
 	if unmarshalErr != nil {
-		c.JSON(http.StatusBadRequest, ERROR_MSG_INVALID_POST_REQUEST)
+		c.JSON(http.StatusBadRequest, ErrorMsgInvalidPostRequest)
 		return
 	}
 	shortBook.Id = id
@@ -97,7 +97,7 @@ func DeleteBook(c *gin.Context) {
 
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusNotFound, ERROR_MSG_ID_NOT_FOUND)
+		c.JSON(http.StatusNotFound, ErrorMsgIdNotFound)
 		return
 	}
 	err := Delete(id)

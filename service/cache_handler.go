@@ -1,18 +1,19 @@
-package main
+package service
 
 import (
+	"github.com/bar41234/bar_book_service/platform"
 	"github.com/gin-gonic/gin"
 	"sync"
 )
 
 // Singleton
-var bc bookCache
+var bc platform.BookCache
 var cacheOnce sync.Once
 
 // Singleton method
-func GetCacheInstance() bookCache {
+func GetCacheInstance() platform.BookCache {
 	cacheOnce.Do(func() {
-		bc = GetCache()
+		bc = platform.GetCache()
 	})
 	return bc
 }
@@ -22,7 +23,7 @@ func CacheGet(username string) ([]string, error) {
 	return curCache.CacheGet(username)
 }
 
-func CacheAdd(username string, ctx * gin.Context) {
+func CacheAdd(username string, ctx *gin.Context) {
 	curCache := GetCacheInstance()
 	curCache.CacheAdd(username, ctx)
 }

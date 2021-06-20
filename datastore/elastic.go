@@ -10,9 +10,9 @@ import (
 )
 
 const (
-	ELASTIC_URL = "http://es-search-7.fiverrdev.com:9200"
-	INDEX_NAME  = "bar_books_store_2"
-	QUERY_SIZE = 100
+	ElasticUrl = "http://es-search-7.fiverrdev.com:9200"
+	IndexName  = "bar_books_store_2"
+	QuerySize  = 100
 )
 
 type ElasticDb struct {
@@ -20,15 +20,15 @@ type ElasticDb struct {
 	isInit bool
 }
 
-func (e *ElasticDb) Init() error{
+func (e *ElasticDb) Init() error {
 	if !e.isInit {
-		client, err := elastic.NewClient(elastic.SetURL(ELASTIC_URL))
+		client, err := elastic.NewClient(elastic.SetURL(ElasticUrl))
 		if err != nil {
 			return err
 		}
 		e.client = client
 		ctx := context.Background()
-		_, _, err = e.client.Ping(ELASTIC_URL).Do(ctx)
+		_, _, err = e.client.Ping(ElasticUrl).Do(ctx)
 		if err != nil {
 			return err
 		}
@@ -37,13 +37,13 @@ func (e *ElasticDb) Init() error{
 	return nil
 }
 
-func (e *ElasticDb) Get(id string) (*models.Book, error){
+func (e *ElasticDb) Get(id string) (*models.Book, error) {
 	initErr := e.Init()
 	if initErr != nil {
 		return nil, initErr
 	}
 	ctx := context.Background()
-	get, getErr := e.client.Get().Index(INDEX_NAME).Id(id).Do(ctx)
+	get, getErr := e.client.Get().Index(IndexName).Id(id).Do(ctx)
 	if getErr != nil {
 		return nil, getErr
 	}
@@ -67,7 +67,7 @@ func (e *ElasticDb) Put(book models.Book) (string, error) {
 	}
 	bj := string(bookJson)
 	put, putErr := e.client.Index().
-		Index(INDEX_NAME).
+		Index(IndexName).
 		BodyJson(bj).
 		Do(ctx)
 	if putErr != nil {
@@ -77,13 +77,13 @@ func (e *ElasticDb) Put(book models.Book) (string, error) {
 
 }
 
-func (e *ElasticDb) Post(shortBook models.ShortBook) (*models.Book, error){
+func (e *ElasticDb) Post(shortBook models.ShortBook) (*models.Book, error) {
 	initErr := e.Init()
 	if initErr != nil {
 		return nil, initErr
 	}
 	ctx := context.Background()
-	_, updateErr := e.client.Update().Index(INDEX_NAME).Id(shortBook.Id).Doc(map[string]interface{}{"title": shortBook.Title}).Do(ctx)
+	_, updateErr := e.client.Update().Index(IndexName).Id(shortBook.Id).Doc(map[string]interface{}{"title": shortBook.Title}).Do(ctx)
 	if updateErr != nil {
 		return nil, updateErr
 	}
@@ -96,11 +96,11 @@ func (e *ElasticDb) Delete(id string) error {
 		return initErr
 	}
 	ctx := context.Background()
-	_, deleteErr := e.client.Delete().Index(INDEX_NAME).Id(id).Do(ctx)
+	_, deleteErr := e.client.Delete().Index(IndexName).Id(id).Do(ctx)
 	return deleteErr
 }
 
-func (e *ElasticDb) queryBuilder(bookQuery models.BookQuery) (*elastic.BoolQuery, error){
+func (e *ElasticDb) queryBuilder(bookQuery models.BookQuery) (*elastic.BoolQuery, error) {
 	query := elastic.NewBoolQuery()
 	if bookQuery.Title != "" {
 		titleQuery := elastic.NewMatchQuery("title", bookQuery.Title)
@@ -134,7 +134,7 @@ func (e *ElasticDb) Search(bookQuery models.BookQuery) ([]models.Book, error) {
 	if builderErr != nil {
 		return nil, builderErr
 	}
-	searchResult, searchErr := e.client.Search().Index(INDEX_NAME).Query(query).Size(QUERY_SIZE).Do(ctx)
+	searchResult, searchErr := e.client.Search().Index(IndexName).Query(query).Size(QuerySize).Do(ctx)
 	if searchErr != nil {
 		return nil, searchErr
 	}
@@ -152,7 +152,6 @@ func (e *ElasticDb) Search(bookQuery models.BookQuery) ([]models.Book, error) {
 
 }
 
-
 func (e *ElasticDb) GetStore() (models.Store, error) {
 	initErr := e.Init()
 	if initErr != nil {
@@ -160,7 +159,7 @@ func (e *ElasticDb) GetStore() (models.Store, error) {
 	}
 	ctx := context.Background()
 	distinctAuthorsAgg := elastic.NewCardinalityAggregation().Field("author_name.keyword")
-	allBooksSearchResults, searchErr := e.client.Search().Index(INDEX_NAME).Aggregation("bar", distinctAuthorsAgg).Size(0).Do(ctx)
+	allBooksSearchResults, searchErr := e.client.Search().Index(IndexName).Aggregation("bar", distinctAuthorsAgg).Size(0).Do(ctx)
 	if searchErr != nil {
 		return models.Store{}, searchErr
 	}
@@ -168,7 +167,7 @@ func (e *ElasticDb) GetStore() (models.Store, error) {
 		// Should handle this - use found
 	}
 
-	var numOfDistinctAuthors struct{
+	var numOfDistinctAuthors struct {
 		Count int64 `json:"value"`
 	}
 	unmarshalErr := json.Unmarshal(allBooksSearchResults.Aggregations["bar"], &numOfDistinctAuthors)
@@ -176,7 +175,7 @@ func (e *ElasticDb) GetStore() (models.Store, error) {
 		return models.Store{}, unmarshalErr
 	}
 	return models.Store{
-		Books: allBooksSearchResults.Hits.TotalHits.Value,
+		Books:   allBooksSearchResults.Hits.TotalHits.Value,
 		Authors: numOfDistinctAuthors.Count,
 	}, nil
 }
