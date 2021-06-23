@@ -2,36 +2,32 @@ package service
 
 import (
 	"encoding/json"
+	"github.com/bar41234/bar_book_service/datastore"
 	"github.com/bar41234/bar_book_service/models"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
 
 const (
-	ErrorMsgIdNotFound         = "Error: Id was not found!"
-	ErrorMsgInvalidPutRequest  = "Error: Invalid PUT request"
-	ErrorMsgInvalidPostRequest = "Error: Invalid POST request"
+	errorMsgIdNotFound         = "Error: Id was not found!"
+	errorMsgInvalidPutRequest  = "Error: Invalid PUT request"
+	errorMsgInvalidPostRequest = "Error: Invalid POST request"
 )
 
 func Ping(c *gin.Context) {
-	username := c.Query("username")
-	CacheAdd(username, c)
-
 	c.JSON(http.StatusOK, map[string]string{
-		"PING!": "PONG!",
+		"message": "Ping Pong!",
 	})
 }
 
 func GetBook(c *gin.Context) {
-	username := c.Query("username")
-	CacheAdd(username, c)
-
+	bookStoreContainer, _ := datastore.BooksContainerFactory()
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusNotFound, ErrorMsgIdNotFound)
+		c.JSON(http.StatusNotFound, errorMsgIdNotFound)
 		return
 	}
-	book, err := Get(id)
+	book, err := bookStoreContainer.Get(id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, err.Error())
 		return
@@ -39,68 +35,56 @@ func GetBook(c *gin.Context) {
 	c.JSON(http.StatusOK, book)
 }
 
-func PutBook(c *gin.Context) {
-	username := c.Query("username")
-	CacheAdd(username, c)
-
-	jsonData, err := c.GetRawData()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorMsgInvalidPutRequest)
-		return
-	}
+func AddBook(c *gin.Context) {
+	bookStoreContainer, _ := datastore.BooksContainerFactory()
 	book := models.Book{}
-	unmarshallErr := json.Unmarshal(jsonData, &book)
-	if unmarshallErr != nil {
-		c.JSON(http.StatusBadRequest, ErrorMsgInvalidPutRequest)
+	err := c.ShouldBind(&book)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, errorMsgInvalidPutRequest)
 		return
 	}
-	id, putErr := Put(book)
-	if putErr != nil {
-		c.JSON(http.StatusBadRequest, putErr)
+	id, err := bookStoreContainer.Add(book)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, err)
 		return
 	}
 	c.String(http.StatusOK, id)
 }
 
-func PostBook(c *gin.Context) {
-	username := c.Query("username")
-	CacheAdd(username, c)
-
+func UpdateBook(c *gin.Context) {
+	bookStoreContainer, _ := datastore.BooksContainerFactory()
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusNotFound, ErrorMsgIdNotFound)
+		c.JSON(http.StatusNotFound, errorMsgIdNotFound)
 		return
 	}
 	jsonData, err := c.GetRawData()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorMsgInvalidPostRequest)
+		c.JSON(http.StatusBadRequest, errorMsgInvalidPostRequest)
 		return
 	}
-	shortBook := models.ShortBook{}
-	unmarshalErr := json.Unmarshal(jsonData, &shortBook)
-	if unmarshalErr != nil {
-		c.JSON(http.StatusBadRequest, ErrorMsgInvalidPostRequest)
+	var book models.Book
+	err = json.Unmarshal(jsonData, &book)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, errorMsgInvalidPostRequest)
 		return
 	}
-	shortBook.Id = id
-	book, postErr := Post(shortBook)
-	if postErr != nil {
-		c.JSON(http.StatusBadRequest, postErr)
+	bookId, err := bookStoreContainer.Update(id, book.Title)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, err)
 		return
 	}
-	c.JSON(http.StatusOK, book)
+	c.JSON(http.StatusOK, "Book "+bookId+" was successfully updated")
 }
 
 func DeleteBook(c *gin.Context) {
-	username := c.Query("username")
-	CacheAdd(username, c)
-
+	bookStoreContainer, _ := datastore.BooksContainerFactory()
 	id := c.Param("id")
 	if id == "" {
-		c.JSON(http.StatusNotFound, ErrorMsgIdNotFound)
+		c.JSON(http.StatusNotFound, errorMsgIdNotFound)
 		return
 	}
-	err := Delete(id)
+	err := bookStoreContainer.Delete(id)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err)
 		return
@@ -109,30 +93,21 @@ func DeleteBook(c *gin.Context) {
 }
 
 func SearchBook(c *gin.Context) {
-	username := c.Query("username")
-	CacheAdd(username, c)
-
+	bookStoreContainer, _ := datastore.BooksContainerFactory()
 	title := c.Query("title")
 	author := c.Query("author_name")
 	priceRange := c.Query("price_range")
-	bookQuery := models.BookQuery{
-		Title:      title,
-		AuthorName: author,
-		PriceRange: priceRange,
-	}
-	books, searchErr := Search(bookQuery)
-	if searchErr != nil {
-		c.JSON(http.StatusBadRequest, searchErr)
+	books, err := bookStoreContainer.Search(title, author, priceRange)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, err)
 		return
 	}
 	c.JSON(http.StatusOK, books)
 }
 
 func GetStoreInfo(c *gin.Context) {
-	username := c.Query("username")
-	CacheAdd(username, c)
-
-	store, err := GetStore()
+	bookStoreContainer, _ := datastore.BooksContainerFactory()
+	store, err := bookStoreContainer.GetStore()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err)
 		return
@@ -141,12 +116,20 @@ func GetStoreInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, store)
 }
 
-func Cache(c *gin.Context) {
+func GetActivities(c *gin.Context) {
+	userActivityManager, _ := datastore.UserActivityFactory()
 	username := c.Query("username")
-	actions, errCache := CacheGet(username)
-	if errCache != nil {
-		c.JSON(http.StatusBadRequest, errCache)
+	actions, err := userActivityManager.Get(username)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, err)
 		return
 	}
 	c.JSON(http.StatusOK, actions)
+}
+
+func middleware(c *gin.Context) {
+	userActivityManager, _ := datastore.UserActivityFactory()
+	username := c.Query("username")
+	userActivityManager.Add(username, c.Request.Method, c.Request.RequestURI)
+	c.Next()
 }

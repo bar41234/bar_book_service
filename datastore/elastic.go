@@ -5,117 +5,104 @@ import (
 	"encoding/json"
 	"github.com/bar41234/bar_book_service/models"
 	"github.com/olivere/elastic/v7"
+	"github.com/pkg/errors"
+	"net/http"
 	"strconv"
 	"strings"
 )
 
 const (
-	ElasticUrl = "http://es-search-7.fiverrdev.com:9200"
-	IndexName  = "bar_books_store_2"
-	QuerySize  = 100
+	indexName = "bar_books_store_2"
+	querySize = 100
 )
 
-type ElasticDb struct {
+type bookManager struct {
 	client *elastic.Client
-	isInit bool
 }
 
-func (e *ElasticDb) Init() error {
-	if !e.isInit {
-		client, err := elastic.NewClient(elastic.SetURL(ElasticUrl))
-		if err != nil {
-			return err
-		}
-		e.client = client
-		ctx := context.Background()
-		_, _, err = e.client.Ping(ElasticUrl).Do(ctx)
-		if err != nil {
-			return err
-		}
-		e.isInit = true
-	}
-	return nil
+type countDistinctAuthors struct {
+	Val int `json:"value"`
 }
 
-func (e *ElasticDb) Get(id string) (*models.Book, error) {
-	initErr := e.Init()
-	if initErr != nil {
-		return nil, initErr
+func NewElastic(url string) (*bookManager, error) {
+	client, err := elastic.NewClient(elastic.SetURL(url))
+	if err != nil {
+		return nil, errors.New("Elastic client creation was failed")
 	}
+	return &bookManager{client: client}, nil
+}
+
+func (e *bookManager) Get(id string) (*models.Book, error) {
 	ctx := context.Background()
-	get, getErr := e.client.Get().Index(IndexName).Id(id).Do(ctx)
-	if getErr != nil {
-		return nil, getErr
+	res, err := e.client.Get().Index(indexName).Id(id).Do(ctx)
+	if err != nil {
+		return nil, err
 	}
 	var book models.Book
-	unmarshalErr := json.Unmarshal(get.Source, &book)
-	if unmarshalErr != nil {
-		return nil, unmarshalErr
+	err = json.Unmarshal(res.Source, &book)
+	if err != nil {
+		return nil, err
 	}
+	book.Id = res.Id
 	return &book, nil
 }
 
-func (e *ElasticDb) Put(book models.Book) (string, error) {
-	initErr := e.Init()
-	if initErr != nil {
-		return "", initErr
-	}
+func (e *bookManager) Add(book models.Book) (string, error) {
 	ctx := context.Background()
-	bookJson, marshalErr := json.Marshal(book)
-	if marshalErr != nil {
-		return "", marshalErr
+	jsonBook, err := json.Marshal(book)
+	if err != nil {
+		return "", err
 	}
-	bj := string(bookJson)
-	put, putErr := e.client.Index().
-		Index(IndexName).
-		BodyJson(bj).
+	bookJason := string(jsonBook)
+	res, err := e.client.Index().
+		Index(indexName).
+		BodyJson(bookJason).
 		Do(ctx)
-	if putErr != nil {
-		return "", putErr
+	if err != nil {
+		return "", err
 	}
-	return put.Id, nil
+	return res.Id, nil
 
 }
 
-func (e *ElasticDb) Post(shortBook models.ShortBook) (*models.Book, error) {
-	initErr := e.Init()
-	if initErr != nil {
-		return nil, initErr
-	}
+func (e *bookManager) Update(id string, title string) (string, error) {
 	ctx := context.Background()
-	_, updateErr := e.client.Update().Index(IndexName).Id(shortBook.Id).Doc(map[string]interface{}{"title": shortBook.Title}).Do(ctx)
-	if updateErr != nil {
-		return nil, updateErr
+	_, err := e.client.Update().Index(indexName).Id(id).Doc(map[string]interface{}{"title": title}).Do(ctx)
+	if err != nil {
+		return "", err
 	}
-	return e.Get(shortBook.Id)
+	return id, nil
 }
 
-func (e *ElasticDb) Delete(id string) error {
-	initErr := e.Init()
-	if initErr != nil {
-		return initErr
-	}
+func (e *bookManager) Delete(id string) error {
 	ctx := context.Background()
-	_, deleteErr := e.client.Delete().Index(IndexName).Id(id).Do(ctx)
-	return deleteErr
+	_, err := e.client.Delete().Index(indexName).Id(id).Do(ctx)
+	return err
 }
 
-func (e *ElasticDb) queryBuilder(bookQuery models.BookQuery) (*elastic.BoolQuery, error) {
+func (e *bookManager) searchQueryBuilder(title string, author string, priceRange string) (*elastic.BoolQuery, error) {
 	query := elastic.NewBoolQuery()
-	if bookQuery.Title != "" {
-		titleQuery := elastic.NewMatchQuery("title", bookQuery.Title)
+	if title != "" {
+		titleQuery := elastic.NewMatchQuery("title", title)
 		query.Must(titleQuery)
 	}
-	if bookQuery.AuthorName != "" {
-		authorQuery := elastic.NewMatchQuery("author_name", bookQuery.AuthorName)
+	if author != "" {
+		authorQuery := elastic.NewMatchQuery("author_name", author)
 		query.Must(authorQuery)
 	}
-	if bookQuery.PriceRange != "" {
-		rangeSlice := strings.Split(bookQuery.PriceRange, ",")
-		low, lowErr := strconv.ParseFloat(rangeSlice[0], 64)
-		high, highErr := strconv.ParseFloat(rangeSlice[1], 64)
-		if lowErr != nil || highErr != nil {
-			return nil, lowErr
+	if priceRange != "" {
+		rangeList := strings.Split(priceRange, ",")
+		if len(rangeList) != 2 {
+			err := errors.New("Price range argument is invalid! Please use the format 'lowRange,highRange'")
+			return nil, err
+		}
+		low, err := strconv.ParseFloat(rangeList[0], 64)
+		if err != nil {
+			return nil, err
+		}
+		high, err := strconv.ParseFloat(rangeList[1], 64)
+		if err != nil {
+			return nil, err
 		}
 		rangeQuery := elastic.NewRangeQuery("price").Gte(low).Lte(high)
 		query.Must(rangeQuery)
@@ -123,28 +110,25 @@ func (e *ElasticDb) queryBuilder(bookQuery models.BookQuery) (*elastic.BoolQuery
 	return query, nil
 }
 
-func (e *ElasticDb) Search(bookQuery models.BookQuery) ([]models.Book, error) {
-	initErr := e.Init()
-	if initErr != nil {
-		return nil, initErr
-	}
+func (e *bookManager) Search(title string, author string, priceRange string) ([]models.Book, error) {
 	ctx := context.Background()
+	query, err := e.searchQueryBuilder(title, author, priceRange)
+	if err != nil {
+		return nil, err
+	}
+	searchResult, err := e.client.Search().Index(indexName).Query(query).Size(querySize).Do(ctx)
+	if err != nil {
+		return nil, err
+	}
 	var allBooks []models.Book
-	query, builderErr := e.queryBuilder(bookQuery)
-	if builderErr != nil {
-		return nil, builderErr
-	}
-	searchResult, searchErr := e.client.Search().Index(IndexName).Query(query).Size(QuerySize).Do(ctx)
-	if searchErr != nil {
-		return nil, searchErr
-	}
 	if searchResult.Hits.TotalHits.Value > 0 {
 		for _, hit := range searchResult.Hits.Hits {
 			var book models.Book
-			unmarshalErr := json.Unmarshal(hit.Source, &book)
-			if unmarshalErr != nil {
-				return nil, unmarshalErr
+			err := json.Unmarshal(hit.Source, &book)
+			if err != nil {
+				return nil, err
 			}
+			book.Id = hit.Id
 			allBooks = append(allBooks, book)
 		}
 	}
@@ -152,30 +136,25 @@ func (e *ElasticDb) Search(bookQuery models.BookQuery) ([]models.Book, error) {
 
 }
 
-func (e *ElasticDb) GetStore() (models.Store, error) {
-	initErr := e.Init()
-	if initErr != nil {
-		return models.Store{}, initErr
-	}
+func (e *bookManager) GetStore() (*models.Store, error) {
 	ctx := context.Background()
 	distinctAuthorsAgg := elastic.NewCardinalityAggregation().Field("author_name.keyword")
-	allBooksSearchResults, searchErr := e.client.Search().Index(IndexName).Aggregation("bar", distinctAuthorsAgg).Size(0).Do(ctx)
-	if searchErr != nil {
-		return models.Store{}, searchErr
+	allBooksSearchResults, err := e.client.Search().Index(indexName).Aggregation("distinct_authors", distinctAuthorsAgg).Size(0).Do(ctx)
+	if err != nil {
+		return nil, err
 	}
-	if allBooksSearchResults.Aggregations["bar"] == nil {
-		// Should handle this - use found
+	authorsCount, found := allBooksSearchResults.Aggregations["distinct_authors"]
+	if !found {
+		err = errors.New("Aggregation name was not found")
+		return nil, &elastic.Error{Status: http.StatusNotFound}
 	}
-
-	var numOfDistinctAuthors struct {
-		Count int64 `json:"value"`
+	count := countDistinctAuthors{}
+	err = json.Unmarshal(authorsCount, &count)
+	if err != nil {
+		return nil, err
 	}
-	unmarshalErr := json.Unmarshal(allBooksSearchResults.Aggregations["bar"], &numOfDistinctAuthors)
-	if unmarshalErr != nil {
-		return models.Store{}, unmarshalErr
-	}
-	return models.Store{
-		Books:   allBooksSearchResults.Hits.TotalHits.Value,
-		Authors: numOfDistinctAuthors.Count,
+	return &models.Store{
+		Books:   int(allBooksSearchResults.Hits.TotalHits.Value),
+		Authors: count.Val,
 	}, nil
 }

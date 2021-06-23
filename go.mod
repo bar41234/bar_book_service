@@ -7,5 +7,6 @@ require (
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/olivere/elastic v6.2.35+incompatible
 	github.com/olivere/elastic/v7 v7.0.24
+	github.com/pkg/errors v0.9.1 // indirect
 	gopkg.in/redis.v5 v5.2.9 // indirect
 )

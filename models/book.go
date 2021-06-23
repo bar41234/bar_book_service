@@ -1,6 +1,7 @@
 package models
 
 type Book struct {
+	Id          string  `json:"id"`
 	Title       string  `json:"title"`
 	Price       float64 `json:"price"`
 	AuthorName  string  `json:"author_name"`
@@ -8,18 +9,7 @@ type Book struct {
 	PublishDate string  `json:"publish_date"`
 }
 
-type ShortBook struct {
-	Title string `json:"title"`
-	Id    string `json:"id"`
-}
-
-type BookQuery struct {
-	Title      string `json:"title"`
-	PriceRange string `json:"price_range"`
-	AuthorName string `json:"author_name"`
-}
-
 type Store struct {
-	Books   int64 `json:"books"`
-	Authors int64 `json:"authors"`
+	Books   int `json:"books"`
+	Authors int `json:"authors"`
 }
