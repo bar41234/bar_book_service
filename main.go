@@ -17,7 +17,7 @@ func main() {
 }
 
 func setup() error {
-	_, err := datastore.BooksContainerFactory()
+	_, err := datastore.BooksStoreFactory()
 	if err != nil {
 		return err
 	}

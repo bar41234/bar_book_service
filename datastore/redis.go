@@ -1,6 +1,7 @@
 package datastore
 
 import (
+	"fmt"
 	"gopkg.in/redis.v5"
 )
 
@@ -8,11 +9,11 @@ const (
 	actionsNumber = 3
 )
 
-type RedisDataStore struct {
+type redisUserActivity struct {
 	client *redis.Client
 }
 
-func NewRedis(url string) (*RedisDataStore, error) {
+func NewRedisUserActivity(url string) (*redisUserActivity, error) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     url,
 		Password: "",
@@ -23,11 +24,11 @@ func NewRedis(url string) (*RedisDataStore, error) {
 		return nil, err
 	}
 
-	return &RedisDataStore{client: client}, nil
+	return &redisUserActivity{client: client}, nil
 
 }
 
-func (e *RedisDataStore) Get(username string) ([]string, error) {
+func (e *redisUserActivity) GetActivities(username string) ([]string, error) {
 	ret, err := e.client.LRange(username, 0, actionsNumber).Result()
 	if err != nil {
 		return nil, err
@@ -35,13 +36,15 @@ func (e *RedisDataStore) Get(username string) ([]string, error) {
 	return ret, nil
 }
 
-func (e *RedisDataStore) Add(username string, methodName string, request string) {
-	if username != "" {
-		length := e.client.LLen(username).Val()
-		for length >= actionsNumber {
-			e.client.RPop(username)
-			length--
-		}
-		e.client.LPush(username, methodName+request)
+func (e *redisUserActivity) AddActivity(username string, methodName string, request string) {
+	if username == "" {
+		return
 	}
+	e.client.LPush(username, fmt.Sprintf("Method: %s, Route: %s", methodName, request))
+	length := e.client.LLen(username).Val()
+	for length > actionsNumber {
+		e.client.RPop(username)
+		length--
+	}
+
 }

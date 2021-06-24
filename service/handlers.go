@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/bar41234/bar_book_service/datastore"
 	"github.com/bar41234/bar_book_service/models"
 	"github.com/gin-gonic/gin"
@@ -21,13 +22,13 @@ func Ping(c *gin.Context) {
 }
 
 func GetBook(c *gin.Context) {
-	bookStoreContainer, _ := datastore.BooksContainerFactory()
+	bookStore, _ := datastore.BooksStoreFactory()
 	id := c.Param("id")
 	if id == "" {
 		c.JSON(http.StatusNotFound, errorMsgIdNotFound)
 		return
 	}
-	book, err := bookStoreContainer.Get(id)
+	book, err := bookStore.GetBook(id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, err.Error())
 		return
@@ -36,23 +37,23 @@ func GetBook(c *gin.Context) {
 }
 
 func AddBook(c *gin.Context) {
-	bookStoreContainer, _ := datastore.BooksContainerFactory()
+	bookStore, _ := datastore.BooksStoreFactory()
 	book := models.Book{}
 	err := c.ShouldBind(&book)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, errorMsgInvalidPutRequest)
 		return
 	}
-	id, err := bookStoreContainer.Add(book)
+	id, err := bookStore.AddBook(book)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err)
 		return
 	}
-	c.String(http.StatusOK, id)
+	c.JSON(http.StatusOK, id)
 }
 
 func UpdateBook(c *gin.Context) {
-	bookStoreContainer, _ := datastore.BooksContainerFactory()
+	bookStore, _ := datastore.BooksStoreFactory()
 	id := c.Param("id")
 	if id == "" {
 		c.JSON(http.StatusNotFound, errorMsgIdNotFound)
@@ -69,22 +70,22 @@ func UpdateBook(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, errorMsgInvalidPostRequest)
 		return
 	}
-	bookId, err := bookStoreContainer.Update(id, book.Title)
+	bookId, err := bookStore.UpdateBook(id, book.Title)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err)
 		return
 	}
-	c.JSON(http.StatusOK, "Book "+bookId+" was successfully updated")
+	c.JSON(http.StatusOK, fmt.Sprintf("Book %s was successfully updated", bookId))
 }
 
 func DeleteBook(c *gin.Context) {
-	bookStoreContainer, _ := datastore.BooksContainerFactory()
+	bookStore, _ := datastore.BooksStoreFactory()
 	id := c.Param("id")
 	if id == "" {
 		c.JSON(http.StatusNotFound, errorMsgIdNotFound)
 		return
 	}
-	err := bookStoreContainer.Delete(id)
+	err := bookStore.DeleteBook(id)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err)
 		return
@@ -93,11 +94,11 @@ func DeleteBook(c *gin.Context) {
 }
 
 func SearchBook(c *gin.Context) {
-	bookStoreContainer, _ := datastore.BooksContainerFactory()
+	bookStore, _ := datastore.BooksStoreFactory()
 	title := c.Query("title")
 	author := c.Query("author_name")
 	priceRange := c.Query("price_range")
-	books, err := bookStoreContainer.Search(title, author, priceRange)
+	books, err := bookStore.Search(title, author, priceRange)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err)
 		return
@@ -106,10 +107,10 @@ func SearchBook(c *gin.Context) {
 }
 
 func GetStoreInfo(c *gin.Context) {
-	bookStoreContainer, _ := datastore.BooksContainerFactory()
-	store, err := bookStoreContainer.GetStore()
+	bookStore, _ := datastore.BooksStoreFactory()
+	store, err := bookStore.GetStoreInfo()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err})
 		return
 	}
 
@@ -117,9 +118,9 @@ func GetStoreInfo(c *gin.Context) {
 }
 
 func GetActivities(c *gin.Context) {
-	userActivityManager, _ := datastore.UserActivityFactory()
+	userActivity, _ := datastore.UserActivityFactory()
 	username := c.Query("username")
-	actions, err := userActivityManager.Get(username)
+	actions, err := userActivity.GetActivities(username)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err)
 		return
@@ -128,8 +129,11 @@ func GetActivities(c *gin.Context) {
 }
 
 func middleware(c *gin.Context) {
-	userActivityManager, _ := datastore.UserActivityFactory()
+	userActivity, _ := datastore.UserActivityFactory()
 	username := c.Query("username")
-	userActivityManager.Add(username, c.Request.Method, c.Request.RequestURI)
+	if username == "" {
+		return
+	}
+	userActivity.AddActivity(username, c.Request.Method, c.Request.RequestURI)
 	c.Next()
 }
