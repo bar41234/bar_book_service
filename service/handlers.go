@@ -10,7 +10,6 @@ import (
 )
 
 const (
-	errorMsgIdNotFound         = "Error: Id was not found!"
 	errorMsgInvalidPutRequest  = "Error: Invalid PUT request"
 	errorMsgInvalidPostRequest = "Error: Invalid POST request"
 )
@@ -24,16 +23,12 @@ func Ping(c *gin.Context) {
 func GetBook(c *gin.Context) {
 	bookStore, _ := datastore.BooksStoreFactory()
 	id := c.Param("id")
-	if id == "" {
-		c.JSON(http.StatusNotFound, errorMsgIdNotFound)
-		return
-	}
 	book, err := bookStore.GetBook(id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, err.Error())
 		return
 	}
-	c.JSON(http.StatusOK, book)
+	c.JSON(http.StatusOK, *book)
 }
 
 func AddBook(c *gin.Context) {
@@ -49,16 +44,12 @@ func AddBook(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, err)
 		return
 	}
-	c.JSON(http.StatusOK, id)
+	c.JSON(http.StatusOK, *id)
 }
 
 func UpdateBook(c *gin.Context) {
 	bookStore, _ := datastore.BooksStoreFactory()
 	id := c.Param("id")
-	if id == "" {
-		c.JSON(http.StatusNotFound, errorMsgIdNotFound)
-		return
-	}
 	jsonData, err := c.GetRawData()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, errorMsgInvalidPostRequest)
@@ -75,16 +66,12 @@ func UpdateBook(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, err)
 		return
 	}
-	c.JSON(http.StatusOK, fmt.Sprintf("Book %s was successfully updated", bookId))
+	c.JSON(http.StatusOK, fmt.Sprintf("Book %s was successfully updated", *bookId))
 }
 
 func DeleteBook(c *gin.Context) {
 	bookStore, _ := datastore.BooksStoreFactory()
 	id := c.Param("id")
-	if id == "" {
-		c.JSON(http.StatusNotFound, errorMsgIdNotFound)
-		return
-	}
 	err := bookStore.DeleteBook(id)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err)
@@ -120,6 +107,10 @@ func GetStoreInfo(c *gin.Context) {
 func GetActivities(c *gin.Context) {
 	userActivity, _ := datastore.UserActivityFactory()
 	username := c.Query("username")
+	if username == "" {
+		c.JSON(http.StatusBadRequest, "Error: username field is missing")
+		return
+	}
 	actions, err := userActivity.GetActivities(username)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err)
@@ -128,7 +119,7 @@ func GetActivities(c *gin.Context) {
 	c.JSON(http.StatusOK, actions)
 }
 
-func middleware(c *gin.Context) {
+func Middleware(c *gin.Context) {
 	userActivity, _ := datastore.UserActivityFactory()
 	username := c.Query("username")
 	if username == "" {

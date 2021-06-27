@@ -29,7 +29,7 @@ func NewRedisUserActivity(url string) (*redisUserActivity, error) {
 }
 
 func (e *redisUserActivity) GetActivities(username string) ([]string, error) {
-	ret, err := e.client.LRange(username, 0, actionsNumber).Result()
+	ret, err := e.client.LRange(username, 0, actionsNumber-1).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -42,9 +42,7 @@ func (e *redisUserActivity) AddActivity(username string, methodName string, requ
 	}
 	e.client.LPush(username, fmt.Sprintf("Method: %s, Route: %s", methodName, request))
 	length := e.client.LLen(username).Val()
-	for length > actionsNumber {
-		e.client.RPop(username)
-		length--
+	if length > actionsNumber {
+		e.client.LTrim(username, 0, actionsNumber-1)
 	}
-
 }

@@ -42,11 +42,11 @@ func (e *elasticBookManager) GetBook(id string) (*models.Book, error) {
 	return &book, nil
 }
 
-func (e *elasticBookManager) AddBook(book models.Book) (string, error) {
+func (e *elasticBookManager) AddBook(book models.Book) (*string, error) {
 	ctx := context.Background()
 	jsonBook, err := json.Marshal(book)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	bookJason := string(jsonBook)
 	res, err := e.client.Index().
@@ -54,18 +54,18 @@ func (e *elasticBookManager) AddBook(book models.Book) (string, error) {
 		BodyJson(bookJason).
 		Do(ctx)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return res.Id, nil
+	return &res.Id, nil
 }
 
-func (e *elasticBookManager) UpdateBook(id string, title string) (string, error) {
+func (e *elasticBookManager) UpdateBook(id string, title string) (*string, error) {
 	ctx := context.Background()
 	_, err := e.client.Update().Index(indexName).Id(id).Doc(map[string]interface{}{"title": title}).Do(ctx)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return id, nil
+	return &id, nil
 }
 
 func (e *elasticBookManager) DeleteBook(id string) error {

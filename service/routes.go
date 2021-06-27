@@ -5,7 +5,6 @@ import (
 )
 
 func Routes(router *gin.Engine) *gin.Engine {
-	router.Use(middleware)
 	router.GET("/ping", Ping)
 	book := router.Group("/book")
 	{

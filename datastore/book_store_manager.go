@@ -15,26 +15,27 @@ var bookStoreManager BookStorer
 var userActivityManager UserActivitier
 var bookInitOnce sync.Once
 var userInitOnce sync.Once
-var err error
+var errBookInit error
+var errUserInit error
 
 func BooksStoreFactory() (BookStorer, error) {
 	bookInitOnce.Do(func() {
-		bookStoreManager, err = NewElasticBookManager(elasticUrl)
+		bookStoreManager, errBookInit = NewElasticBookManager(elasticUrl)
 	})
-	return bookStoreManager, err
+	return bookStoreManager, errBookInit
 }
 
 func UserActivityFactory() (UserActivitier, error) {
 	userInitOnce.Do(func() {
-		userActivityManager, err = NewRedisUserActivity(redisUrl)
+		userActivityManager, errUserInit = NewRedisUserActivity(redisUrl)
 	})
-	return userActivityManager, err
+	return userActivityManager, errUserInit
 }
 
 type BookStorer interface {
 	GetBook(id string) (*models.Book, error)
-	AddBook(book models.Book) (string, error)
-	UpdateBook(id string, title string) (string, error)
+	AddBook(book models.Book) (*string, error)
+	UpdateBook(id string, title string) (*string, error)
 	DeleteBook(id string) error
 	Search(title string, author string, priceRange string) ([]models.Book, error)
 	GetStoreInfo() (*models.Store, error)

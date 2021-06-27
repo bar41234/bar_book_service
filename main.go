@@ -11,9 +11,22 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	gin := gin.Default()
-	service.Routes(gin)
-	gin.Run()
+	router := gin.Default()
+
+	//Adding middlewares
+	middlewares(router)
+
+	//Registering the routes
+	service.Routes(router)
+
+	err = router.Run()
+	if err != nil {
+		panic(err)
+	}
+}
+
+func middlewares(router *gin.Engine) {
+	router.Use(service.Middleware)
 }
 
 func setup() error {
